@@ -64,6 +64,8 @@
     const saveBtn = document.getElementById('saveBtn');
     const formatSelect = document.getElementById('format');
 
+    let uploadedImage;
+
     // スライダーと入力フィールドの同期
     sizeSlider.addEventListener('input', () => {
       sizeInput.value = sizeSlider.value;
@@ -86,6 +88,9 @@
       canvas.width = sw * dotSize;
       canvas.height = sh * dotSize;
 
+      // グラデーション背景の描画
+      createGradientBackground();
+
       ctx.drawImage(uploadedImage, 0, 0, sw, sh);
       const imageData = ctx.getImageData(0, 0, sw, sh);
       const data = imageData.data;
@@ -104,7 +109,39 @@
       }
     }
 
-    let uploadedImage;
+    function createGradientBackground() {
+      // グラデーションを作成
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      
+      // 画像の上部中央の色をサンプリングしてグラデーションに使用
+      const gradientStartColor = getColorAtImage(uploadedImage, 0, 0);
+      const gradientEndColor = getColorAtImage(uploadedImage, uploadedImage.width / 2, uploadedImage.height);
+
+      gradient.addColorStop(0, `rgba(${gradientStartColor.r},${gradientStartColor.g},${gradientStartColor.b},${gradientStartColor.a})`);
+      gradient.addColorStop(1, `rgba(${gradientEndColor.r},${gradientEndColor.g},${gradientEndColor.b},${gradientEndColor.a})`);
+
+      // グラデーション背景を設定
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function getColorAtImage(image, x, y) {
+      // サンプル画像の特定位置から色を取得
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = image.width;
+      tempCanvas.height = image.height;
+      tempCtx.drawImage(image, 0, 0);
+
+      const pixel = tempCtx.getImageData(x, y, 1, 1).data;
+      return {
+        r: pixel[0],
+        g: pixel[1],
+        b: pixel[2],
+        a: pixel[3] / 255
+      };
+    }
+
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -138,6 +175,7 @@
   </script>
 </body>
 </html>
+
 
 
 
