@@ -3,178 +3,162 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pixelate Tool - Fixed Dot Size</title>
+  <title>Pixelate Tool</title>
   <style>
     body {
-      background: #111;
-      color: #fff;
+      background: #000;
+      color: white;
       font-family: sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem;
+      justify-content: flex-start;
+      padding: 20px;
     }
     canvas {
-      border: 1px solid #555;
+      margin-top: 20px;
       max-width: 100%;
       height: auto;
     }
-    label {
-      margin-top: 1rem;
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 400px;
     }
-    select {
-      margin-top: 1rem;
-      background-color: #333;
-      color: #fff;
-      border: 1px solid #555;
-      padding: 0.5rem;
+    .controls label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    button {
-      margin-top: 1rem;
-      background-color: #444;
-      color: #fff;
-      border: none;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
+    input[type="range"] {
+      width: 150px;
     }
   </style>
 </head>
 <body>
   <h1>Pixelate Tool</h1>
-  <input type="file" id="upload" accept="image/*">
-  <label>
-    ドットサイズ(px): 
-    <input type="range" id="dotSize" min="5" max="100" value="10">
-    <input type="number" id="dotSizeNum" min="5" max="100" value="10" style="width: 60px;">
-  </label>
+  <h2>Newdays Archives</h2>
+
+  <div class="controls">
+    <label>
+      Select Image:
+      <input type="file" id="upload" accept="image/*" />
+    </label>
+    <label>
+      Dot Size:
+      <input type="range" id="dotSize" min="1" max="100" value="10" />
+      <input type="number" id="dotSizeNumber" min="1" max="100" value="10" />
+    </label>
+    <label>
+      Download:
+      <select id="format">
+        <option value="png">PNG</option>
+        <option value="jpeg">JPEG</option>
+      </select>
+      <button id="save">Save</button>
+    </label>
+  </div>
+
   <canvas id="canvas"></canvas>
-  <label for="format">保存形式:</label>
-  <select id="format">
-    <option value="image/png">PNG</option>
-    <option value="image/jpeg">JPEG</option>
-  </select>
-  <button id="saveBtn">画像を保存</button>
 
   <script>
-    const upload = document.getElementById('upload');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const sizeSlider = document.getElementById('dotSize');
-    const sizeInput = document.getElementById('dotSizeNum');
-    const saveBtn = document.getElementById('saveBtn');
-    const formatSelect = document.getElementById('format');
+    const upload = document.getElementById("upload");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const dotSizeSlider = document.getElementById("dotSize");
+    const dotSizeNumber = document.getElementById("dotSizeNumber");
+    const formatSelect = document.getElementById("format");
+    const saveBtn = document.getElementById("save");
 
-    let uploadedImage;
+    let dotSize = parseInt(dotSizeSlider.value);
 
-    // スライダーと入力フィールドの同期
-    sizeSlider.addEventListener('input', () => {
-      sizeInput.value = sizeSlider.value;
-      drawImage();  // 画像を再描画
+    dotSizeSlider.addEventListener("input", () => {
+      dotSize = parseInt(dotSizeSlider.value);
+      dotSizeNumber.value = dotSize;
+      if (uploadedImage) drawImage(uploadedImage);
     });
 
-    sizeInput.addEventListener('input', () => {
-      sizeSlider.value = sizeInput.value;
-      drawImage();  // 画像を再描画
+    dotSizeNumber.addEventListener("input", () => {
+      dotSize = parseInt(dotSizeNumber.value);
+      dotSizeSlider.value = dotSize;
+      if (uploadedImage) drawImage(uploadedImage);
     });
 
-    function drawImage() {
-      const dotSize = parseInt(sizeSlider.value);
+    let uploadedImage = null;
 
-      if (!uploadedImage) return;
+    upload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          uploadedImage = img;
+          drawImage(img);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
 
-      const sw = Math.floor(uploadedImage.width / dotSize);
-      const sh = Math.floor(uploadedImage.height / dotSize);
+    function getColorAt(data, idx) {
+      return {
+        r: data[idx],
+        g: data[idx + 1],
+        b: data[idx + 2],
+        a: data[idx + 3] / 255,
+      };
+    }
+
+    function drawImage(img) {
+      const sw = Math.floor(img.width / dotSize);
+      const sh = Math.floor(img.height / dotSize);
 
       canvas.width = sw * dotSize;
       canvas.height = sh * dotSize;
 
-      // グラデーション背景の描画
-      createGradientBackground();
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = sw;
+      tempCanvas.height = sh;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.drawImage(img, 0, 0, sw, sh);
+      const { data } = tempCtx.getImageData(0, 0, sw, sh);
 
-      ctx.drawImage(uploadedImage, 0, 0, sw, sh);
-      const imageData = ctx.getImageData(0, 0, sw, sh);
-      const data = imageData.data;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const bgGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bgGradient.addColorStop(0, "#111");
+      bgGradient.addColorStop(1, "#333");
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
           const idx = (y * sw + x) * 4;
           const color = getColorAt(data, idx);
+
+          const offsetX = (y % 2 === 0) ? 0 : dotSize / 2;
+
           ctx.beginPath();
           ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
-          ctx.arc(x * dotSize + dotSize / 2, y * dotSize + dotSize / 2, dotSize / 2, 0, Math.PI * 2);
+          ctx.arc(x * dotSize + dotSize / 2 + offsetX, y * dotSize + dotSize / 2, dotSize / 2, 0, Math.PI * 2);
           ctx.fill();
         }
       }
     }
 
-    function createGradientBackground() {
-      // グラデーションを作成
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      
-      // 画像の上部と下部から色をサンプリングしてグラデーションに使用
-      const gradientStartColor = getColorAtImage(uploadedImage, 0, 0);
-      const gradientEndColor = getColorAtImage(uploadedImage, uploadedImage.width / 2, uploadedImage.height);
-
-      gradient.addColorStop(0, `rgba(${gradientStartColor.r},${gradientStartColor.g},${gradientStartColor.b},${gradientStartColor.a})`);
-      gradient.addColorStop(1, `rgba(${gradientEndColor.r},${gradientEndColor.g},${gradientEndColor.b},${gradientEndColor.a})`);
-
-      // グラデーション背景を設定
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function getColorAtImage(image, x, y) {
-      // サンプル画像の特定位置から色を取得
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCanvas.width = image.width;
-      tempCanvas.height = image.height;
-      tempCtx.drawImage(image, 0, 0);
-
-      const pixel = tempCtx.getImageData(x, y, 1, 1).data;
-      return {
-        r: pixel[0],
-        g: pixel[1],
-        b: pixel[2],
-        a: pixel[3] / 255
-      };
-    }
-
-    upload.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const img = new Image();
-      img.onload = () => {
-        uploadedImage = img;  // 画像を保持
-        drawImage();  // 画像を描画
-      };
-      img.src = URL.createObjectURL(file);
-    });
-
-    function getColorAt(data, index) {
-      return {
-        r: data[index],
-        g: data[index + 1],
-        b: data[index + 2],
-        a: data[index + 3] / 255
-      };
-    }
-
-    // 保存ボタンのクリックイベント
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener("click", () => {
       const format = formatSelect.value;
-      const dataURL = canvas.toDataURL(format);
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = `pixelated_image.${format.split('/')[1]}`;
+      const link = document.createElement("a");
+      link.download = `pixelated.${format}`;
+      link.href = canvas.toDataURL(`image/${format}`);
       link.click();
     });
   </script>
 </body>
 </html>
+
 
 
 
