@@ -70,6 +70,14 @@
     </div>
 
     <div class="row">
+      <label for="shape">ピクセル形状:</label>
+      <select id="shape">
+        <option value="square">四角</option>
+        <option value="circle">丸</option>
+      </select>
+    </div>
+
+    <div class="row">
       <label for="format">保存形式:</label>
       <select id="format">
         <option value="png">PNG</option>
@@ -87,6 +95,7 @@
   <script>
     const fileInput = document.getElementById("fileInput");
     const pixelSizeInput = document.getElementById("pixelSize");
+    const shapeSelect = document.getElementById("shape");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const downloadBtn = document.getElementById("downloadBtn");
@@ -100,37 +109,66 @@
       const img = new Image();
       img.onload = () => {
         originalImage = img;
-        drawPixelated(img, parseInt(pixelSizeInput.value, 10));
+        drawPixelated(img, parseInt(pixelSizeInput.value, 10), shapeSelect.value);
       };
       img.src = URL.createObjectURL(file);
     });
 
     pixelSizeInput.addEventListener("input", () => {
       if (originalImage) {
-        drawPixelated(originalImage, parseInt(pixelSizeInput.value, 10));
+        drawPixelated(originalImage, parseInt(pixelSizeInput.value, 10), shapeSelect.value);
       }
     });
 
-    function drawPixelated(img, size) {
+    shapeSelect.addEventListener("change", () => {
+      if (originalImage) {
+        drawPixelated(originalImage, parseInt(pixelSizeInput.value, 10), shapeSelect.value);
+      }
+    });
+
+    function drawPixelated(img, size, shape) {
       const w = img.width;
       const h = img.height;
 
-      // キャンバスサイズを画像に合わせる
       canvas.width = w;
       canvas.height = h;
 
-      // 一度小さく描いてから拡大 → ピクセル化
-      const tempCanvas = document.createElement("canvas");
-      const tempCtx = tempCanvas.getContext("2d");
       const sw = Math.ceil(w / size);
       const sh = Math.ceil(h / size);
+
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
       tempCanvas.width = sw;
       tempCanvas.height = sh;
       tempCtx.drawImage(img, 0, 0, sw, sh);
 
-      ctx.imageSmoothingEnabled = false;
+      const imageData = tempCtx.getImageData(0, 0, sw, sh).data;
       ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(tempCanvas, 0, 0, sw, sh, 0, 0, w, h);
+
+      for (let y = 0; y < sh; y++) {
+        for (let x = 0; x < sw; x++) {
+          const index = (y * sw + x) * 4;
+          const r = imageData[index];
+          const g = imageData[index + 1];
+          const b = imageData[index + 2];
+          const a = imageData[index + 3] / 255;
+
+          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+
+          const posX = x * size;
+          const posY = y * size;
+
+          if (shape === "circle") {
+            const centerX = posX + size / 2;
+            const centerY = posY + size / 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillRect(posX, posY, size, size);
+          }
+        }
+      }
     }
 
     downloadBtn.addEventListener("click", () => {
