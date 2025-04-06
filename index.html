@@ -1,146 +1,161 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pixelate Tool - Newdays Archives</title>
+  <title>Pixelate Tool - No Overlap</title>
   <style>
     body {
-      margin: 0;
-      background-color: #111;
+      background: #111;
       color: #fff;
-      font-family: 'Arial', sans-serif;
+      font-family: sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 2rem;
     }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
-    }
-    h2 {
-      font-size: 1rem;
-      color: #aaa;
-      margin-bottom: 2rem;
-    }
     canvas {
-      max-width: 80vw;
+      border: 1px solid #555;
+      max-width: 100%;
       height: auto;
-      margin-bottom: 1rem;
-      border: 1px solid #333;
     }
-    .controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-    .row {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-    input[type="file"], select, input[type="number"], button {
-      padding: 0.5rem;
-      background-color: #222;
-      color: #fff;
-      border: 1px solid #444;
-      border-radius: 6px;
-    }
-    button {
-      cursor: pointer;
+    label {
+      margin-top: 1rem;
     }
   </style>
 </head>
 <body>
   <h1>Pixelate Tool</h1>
-  <h2>Newdays Archives</h2>
-
-  <div class="controls">
-    <div class="row">
-      <label for="fileInput">画像を選択:</label>
-      <input type="file" id="fileInput" accept="image/*" />
-    </div>
-
-    <div class="row">
-      <label for="pixelSize">ピクセルサイズ:</label>
-      <input type="number" id="pixelSize" value="10" min="1" max="100" />
-    </div>
-
-    <div class="row">
-      <label for="format">保存形式:</label>
-      <select id="format">
-        <option value="png">PNG</option>
-        <option value="jpeg">JPEG</option>
-      </select>
-    </div>
-
-    <div class="row">
-      <button id="downloadBtn">画像保存</button>
-    </div>
-  </div>
-
+  <input type="file" id="upload" accept="image/*">
+  <label>
+    最大半径(px): 
+    <input type="range" id="maxRadius" min="2" max="50" value="20">
+    <input type="number" id="maxRadiusNum" min="2" max="50" value="20" style="width: 60px;">
+  </label>
   <canvas id="canvas"></canvas>
 
   <script>
-    const fileInput = document.getElementById("fileInput");
-    const pixelSizeInput = document.getElementById("pixelSize");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const downloadBtn = document.getElementById("downloadBtn");
+    const upload = document.getElementById('upload');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const size = 10;
+    const drawnCircles = [];
+    const maxRadiusSlider = document.getElementById('maxRadius');
+    const maxRadiusNum = document.getElementById('maxRadiusNum');
 
-    let originalImage = null;
+    maxRadiusSlider.addEventListener('input', () => {
+      maxRadiusNum.value = maxRadiusSlider.value;
+    });
+    maxRadiusNum.addEventListener('input', () => {
+      maxRadiusSlider.value = maxRadiusNum.value;
+    });
 
-    fileInput.addEventListener("change", (e) => {
+    upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       const img = new Image();
       img.onload = () => {
-        originalImage = img;
-        drawPixelated(img, parseInt(pixelSizeInput.value, 10));
+        const sw = Math.floor(img.width / size);
+        const sh = Math.floor(img.height / size);
+
+        canvas.width = sw * size;
+        canvas.height = sh * size;
+
+        ctx.drawImage(img, 0, 0, sw, sh);
+        const imageData = ctx.getImageData(0, 0, sw, sh);
+        const data = imageData.data;
+
+        const visited = Array.from({ length: sh }, () => Array(sw).fill(false));
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawnCircles.length = 0;
+
+        const maxR = parseFloat(maxRadiusSlider.value);
+
+        for (let y = 0; y < sh; y++) {
+          for (let x = 0; x < sw; x++) {
+            if (visited[y][x]) continue;
+            const idx = (y * sw + x) * 4;
+            const baseColor = getColorAt(data, idx);
+            const cluster = bfs(x, y, sw, sh, data, visited, baseColor);
+
+            const cx = cluster.reduce((sum, p) => sum + p.x, 0) / cluster.length;
+            const cy = cluster.reduce((sum, p) => sum + p.y, 0) / cluster.length;
+            let radius = Math.min(Math.sqrt(cluster.length) * size / 2, maxR);
+
+            // 重なりを避ける
+            while (checkOverlap(cx * size + size / 2, cy * size + size / 2, radius)) {
+              radius -= 1;
+              if (radius <= 1) break;
+            }
+
+            drawnCircles.push({ x: cx * size + size / 2, y: cy * size + size / 2, r: radius });
+
+            ctx.beginPath();
+            ctx.fillStyle = `rgba(${baseColor.r},${baseColor.g},${baseColor.b},${baseColor.a})`;
+            ctx.arc(cx * size + size / 2, cy * size + size / 2, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       };
       img.src = URL.createObjectURL(file);
     });
 
-    pixelSizeInput.addEventListener("input", () => {
-      if (originalImage) {
-        drawPixelated(originalImage, parseInt(pixelSizeInput.value, 10));
-      }
-    });
-
-    function drawPixelated(img, size) {
-      const w = img.width;
-      const h = img.height;
-
-      // キャンバスサイズを画像に合わせる
-      canvas.width = w;
-      canvas.height = h;
-
-      // 一度小さく描いてから拡大 → ピクセル化
-      const tempCanvas = document.createElement("canvas");
-      const tempCtx = tempCanvas.getContext("2d");
-      const sw = Math.ceil(w / size);
-      const sh = Math.ceil(h / size);
-      tempCanvas.width = sw;
-      tempCanvas.height = sh;
-      tempCtx.drawImage(img, 0, 0, sw, sh);
-
-      ctx.imageSmoothingEnabled = false;
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(tempCanvas, 0, 0, sw, sh, 0, 0, w, h);
+    function getColorAt(data, index) {
+      return {
+        r: data[index],
+        g: data[index + 1],
+        b: data[index + 2],
+        a: data[index + 3] / 255
+      };
     }
 
-    downloadBtn.addEventListener("click", () => {
-      const format = document.getElementById("format").value;
-      const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
-      const link = document.createElement("a");
-      link.download = `pixelated.${format}`;
-      link.href = canvas.toDataURL(mimeType);
-      link.click();
-    });
+    function isSameColor(c1, c2) {
+      return (
+        Math.abs(c1.r - c2.r) < 10 &&
+        Math.abs(c1.g - c2.g) < 10 &&
+        Math.abs(c1.b - c2.b) < 10 &&
+        Math.abs(c1.a - c2.a) < 0.1
+      );
+    }
+
+    function bfs(x, y, sw, sh, data, visited, baseColor) {
+      const queue = [{ x, y }];
+      const cluster = [];
+      visited[y][x] = true;
+
+      const dirs = [
+        [1, 0], [-1, 0], [0, 1], [0, -1]
+      ];
+
+      while (queue.length > 0) {
+        const { x: cx, y: cy } = queue.shift();
+        cluster.push({ x: cx, y: cy });
+
+        for (const [dx, dy] of dirs) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx >= 0 && ny >= 0 && nx < sw && ny < sh && !visited[ny][nx]) {
+            const idx = (ny * sw + nx) * 4;
+            const color = getColorAt(data, idx);
+            if (isSameColor(baseColor, color)) {
+              visited[ny][nx] = true;
+              queue.push({ x: nx, y: ny });
+            }
+          }
+        }
+      }
+      return cluster;
+    }
+
+    function checkOverlap(x, y, r) {
+      return drawnCircles.some(c => {
+        const dx = x - c.x;
+        const dy = y - c.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < r + c.r;
+      });
+    }
   </script>
 </body>
 </html>
