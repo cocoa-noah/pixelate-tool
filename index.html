@@ -41,42 +41,55 @@
     const sizeSlider = document.getElementById('dotSize');
     const sizeInput = document.getElementById('dotSizeNum');
 
+    // スライダーと入力フィールドの同期
     sizeSlider.addEventListener('input', () => {
       sizeInput.value = sizeSlider.value;
+      drawImage();  // 画像を再描画
     });
 
     sizeInput.addEventListener('input', () => {
       sizeSlider.value = sizeInput.value;
+      drawImage();  // 画像を再描画
     });
 
+    function drawImage() {
+      const dotSize = parseInt(sizeSlider.value);
+
+      if (!uploadedImage) return;
+
+      const sw = Math.floor(uploadedImage.width / dotSize);
+      const sh = Math.floor(uploadedImage.height / dotSize);
+
+      canvas.width = sw * dotSize;
+      canvas.height = sh * dotSize;
+
+      ctx.drawImage(uploadedImage, 0, 0, sw, sh);
+      const imageData = ctx.getImageData(0, 0, sw, sh);
+      const data = imageData.data;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < sh; y++) {
+        for (let x = 0; x < sw; x++) {
+          const idx = (y * sw + x) * 4;
+          const color = getColorAt(data, idx);
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
+          ctx.arc(x * dotSize + dotSize / 2, y * dotSize + dotSize / 2, dotSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    let uploadedImage;
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       const img = new Image();
       img.onload = () => {
-        const sw = Math.floor(img.width / sizeSlider.value);
-        const sh = Math.floor(img.height / sizeSlider.value);
-
-        canvas.width = sw * sizeSlider.value;
-        canvas.height = sh * sizeSlider.value;
-
-        ctx.drawImage(img, 0, 0, sw, sh);
-        const imageData = ctx.getImageData(0, 0, sw, sh);
-        const data = imageData.data;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        for (let y = 0; y < sh; y++) {
-          for (let x = 0; x < sw; x++) {
-            const idx = (y * sw + x) * 4;
-            const color = getColorAt(data, idx);
-            ctx.beginPath();
-            ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${color.a})`;
-            ctx.arc(x * sizeSlider.value + sizeSlider.value / 2, y * sizeSlider.value + sizeSlider.value / 2, sizeSlider.value / 2, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
+        uploadedImage = img;  // 画像を保持
+        drawImage();  // 画像を描画
       };
       img.src = URL.createObjectURL(file);
     });
@@ -92,6 +105,7 @@
   </script>
 </body>
 </html>
+
 
 
 
