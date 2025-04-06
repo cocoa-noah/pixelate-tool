@@ -113,7 +113,7 @@
       // グラデーションを作成
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
       
-      // 画像の上部中央の色をサンプリングしてグラデーションに使用
+      // 画像の上部と下部から色をサンプリングしてグラデーションに使用
       const gradientStartColor = getColorAtImage(uploadedImage, 0, 0);
       const gradientEndColor = getColorAtImage(uploadedImage, uploadedImage.width / 2, uploadedImage.height);
 
@@ -175,6 +175,7 @@
   </script>
 </body>
 </html>
+
 
 
 
