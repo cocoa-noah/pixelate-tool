@@ -22,6 +22,21 @@
     label {
       margin-top: 1rem;
     }
+    select {
+      margin-top: 1rem;
+      background-color: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 0.5rem;
+    }
+    button {
+      margin-top: 1rem;
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -33,6 +48,12 @@
     <input type="number" id="dotSizeNum" min="5" max="100" value="10" style="width: 60px;">
   </label>
   <canvas id="canvas"></canvas>
+  <label for="format">保存形式:</label>
+  <select id="format">
+    <option value="image/png">PNG</option>
+    <option value="image/jpeg">JPEG</option>
+  </select>
+  <button id="saveBtn">画像を保存</button>
 
   <script>
     const upload = document.getElementById('upload');
@@ -40,6 +61,8 @@
     const ctx = canvas.getContext('2d');
     const sizeSlider = document.getElementById('dotSize');
     const sizeInput = document.getElementById('dotSizeNum');
+    const saveBtn = document.getElementById('saveBtn');
+    const formatSelect = document.getElementById('format');
 
     // スライダーと入力フィールドの同期
     sizeSlider.addEventListener('input', () => {
@@ -102,9 +125,20 @@
         a: data[index + 3] / 255
       };
     }
+
+    // 保存ボタンのクリックイベント
+    saveBtn.addEventListener('click', () => {
+      const format = formatSelect.value;
+      const dataURL = canvas.toDataURL(format);
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = `pixelated_image.${format.split('/')[1]}`;
+      link.click();
+    });
   </script>
 </body>
 </html>
+
 
 
 
